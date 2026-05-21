@@ -501,8 +501,6 @@ Modificações comuns:
 
 ![screen1](screenshots/desktop.png)
 
-![screen2](screenshots/desktop2.png)
-
 ---
 
 # Código Aberto
