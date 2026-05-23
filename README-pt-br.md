@@ -1,7 +1,17 @@
 # NyxHud
 
+
+
 HUD minimalista, modular e de baixo consumo para Linux focado em desempenho,
 auditabilidade e filosofia Unix.
+
+---
+
+# Screenshots
+
+![screen1](screenshots/desktop.png)
+
+---
 
 NyxHud é um overlay desktop baseado em coletores, projetado para ambientes
 Linux/X11 utilizando uma arquitetura shell-first com pipeline de renderização
@@ -112,10 +122,14 @@ O renderer permanece intencionalmente stateless em relação à lógica dos cole
 # Estrutura do Projeto
 
 ```text
-nyxhud/
+nyxhud
+├── assets
+│   └── logo.svg
 ├── LICENSE
 ├── README.md
 ├── README-pt-br.md
+├── screenshots
+│   └── desktop.png
 └── src
     ├── main
     │   ├── collectors
@@ -494,12 +508,6 @@ Modificações comuns:
 * intervalos de collectors
 * formatação de texto
 * visuais do renderer
-
----
-
-# Screenshots
-
-![screen1](screenshots/desktop.png)
 
 ---
 
