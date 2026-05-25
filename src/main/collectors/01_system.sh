@@ -33,7 +33,7 @@ generate_bar() {
 
     value=${1%\%}
 
-    [ -n "$value" ] || value=0
+    [ -z "$value" ] && value=0
 
     [ "$value" -lt 0 ] 2>/dev/null && value=0
 
@@ -41,31 +41,20 @@ generate_bar() {
 
     width=10
 
-    filled=$((value * width / 100))
+    filled=$(( (value * width) / 100 ))
 
-    empty=$((width - filled))
+    empty=$(( width - filled ))
 
-    bar=''
+    bar_filled=$(printf '%*s' "$filled" '')
+    bar_filled=${bar_filled// /█}
 
-    i=0
+    bar_empty=$(printf '%*s' "$empty" '')
+    bar_empty=${bar_empty// /░}
 
-    while [ "$i" -lt "$filled" ]; do
-
-        bar="${bar}█"
-
-        i=$((i + 1))
-    done
-
-    i=0
-
-    while [ "$i" -lt "$empty" ]; do
-
-        bar="${bar}░"
-
-        i=$((i + 1))
-    done
-
-    printf '[%s] %3d%%' "$bar" "$value"
+    printf '[%s%s] %3d%%' \
+        "$bar_filled" \
+        "$bar_empty" \
+        "$value"
 }
 
 # =========================================================
