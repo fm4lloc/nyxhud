@@ -93,20 +93,30 @@ if [ -s "$TMP1" ] &&
     # PARSE JSON
     # =====================================================
 
-    BTC=$(jq -r '.bitcoin.usd // 0' \
-        "$TMP1" 2>/dev/null)
+set -- $(
+    jq -r '
+    [
+        .bitcoin.usd,
+        .ethereum.usd,
+        .solana.usd
+    ]
+    | map(. // 0)
+    | @tsv
+    ' "$TMP1" 2>/dev/null
+)
 
-    ETH=$(jq -r '.ethereum.usd // 0' \
-        "$TMP1" 2>/dev/null)
+BTC=$1
+ETH=$2
+SOL=$3
 
-    SOL=$(jq -r '.solana.usd // 0' \
-        "$TMP1" 2>/dev/null)
+set -- $(
+    jq -r '
+    .rates.BRL // 0
+    ' "$TMP2" "$TMP3" 2>/dev/null
+)
 
-    USD=$(jq -r '.rates.BRL // 0' \
-        "$TMP2" 2>/dev/null)
-
-    EUR=$(jq -r '.rates.BRL // 0' \
-        "$TMP3" 2>/dev/null)
+USD=$1
+EUR=$2
 
     # =====================================================
     # SANITIZE
