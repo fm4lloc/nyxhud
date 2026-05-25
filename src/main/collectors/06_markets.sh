@@ -11,7 +11,7 @@
 # Technical collaboration: Nyx
 # =========================================================
 
-INTERVAL=14400
+FETCH_INTERVAL=14400
 
 # =========================================================
 # NYXHUD MARKETS MODULE
@@ -34,7 +34,9 @@ TMP2=$(mktemp)
 
 TMP3=$(mktemp)
 
+readonly TMP1
 readonly TMP2
+readonly TMP3
 
 # =========================================================
 # CLEANUP
@@ -48,107 +50,130 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # =========================================================
-# PARALLEL FETCH
+# CACHE AGE
 # =========================================================
 
-curl -fsS \
---connect-timeout 3 \
---max-time 5 \
-"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd" \
-> "$TMP1" &
+NOW=$(date +%s)
 
-PID1=$!
+LAST_UPDATE=0
 
-curl -fsS \
---connect-timeout 3 \
---max-time 5 \
-"https://api.exchangerate-api.com/v4/latest/USD" \
-> "$TMP2" &
+if [ -f "$CACHE" ]; then
 
-PID2=$!
+    LAST_UPDATE=$(
+        stat -c %Y "$CACHE" 2>/dev/null || echo 0
+    )
+fi
 
-curl -fsS \
---connect-timeout 3 \
---max-time 5 \
-"https://api.exchangerate-api.com/v4/latest/EUR" \
-> "$TMP3" &
-
-PID3=$!
-
-wait "$PID1" || true
-
-wait "$PID2" || true
-
-wait "$PID3" || true
+CACHE_AGE=$((NOW - LAST_UPDATE))
 
 # =========================================================
-# VALID FETCH
+# FETCH REMOTE DATA
 # =========================================================
 
-if [ -s "$TMP1" ] &&
-   [ -s "$TMP2" ] &&
-   [ -s "$TMP3" ]; then
+if [ "$CACHE_AGE" -ge "$FETCH_INTERVAL" ]; then
 
     # =====================================================
-    # PARSE JSON
+    # PARALLEL FETCH
     # =====================================================
 
-set -- $(
-    jq -r '
-    [
-        .bitcoin.usd,
-        .ethereum.usd,
-        .solana.usd
-    ]
-    | map(. // 0)
-    | @tsv
-    ' "$TMP1" 2>/dev/null
-)
+    curl -fsS \
+    --connect-timeout 3 \
+    --max-time 5 \
+    "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd" \
+    > "$TMP1" &
 
-BTC=$1
-ETH=$2
-SOL=$3
+    PID1=$!
 
-set -- $(
-    jq -r '
-    .rates.BRL // 0
-    ' "$TMP2" "$TMP3" 2>/dev/null
-)
+    curl -fsS \
+    --connect-timeout 3 \
+    --max-time 5 \
+    "https://api.exchangerate-api.com/v4/latest/USD" \
+    > "$TMP2" &
 
-USD=$1
-EUR=$2
+    PID2=$!
 
-    # =====================================================
-    # SANITIZE
-    # =====================================================
+    curl -fsS \
+    --connect-timeout 3 \
+    --max-time 5 \
+    "https://api.exchangerate-api.com/v4/latest/EUR" \
+    > "$TMP3" &
 
-    BTC=${BTC:-0}
+    PID3=$!
 
-    ETH=${ETH:-0}
+    wait "$PID1" || true
 
-    SOL=${SOL:-0}
+    wait "$PID2" || true
 
-    USD=${USD:-0}
-
-    EUR=${EUR:-0}
-
-    BTC_FMT=$(LC_ALL=C printf "%.2f" "$BTC")
-
-    ETH_FMT=$(LC_ALL=C printf "%.2f" "$ETH")
-
-    SOL_FMT=$(LC_ALL=C printf "%.2f" "$SOL")
-
-    USD_FMT=$(LC_ALL=C printf "%.2f" "$USD")
-
-    EUR_FMT=$(LC_ALL=C printf "%.2f" "$EUR")
+    wait "$PID3" || true
 
     # =====================================================
-    # ATOMIC CACHE WRITE
+    # VALID FETCH
     # =====================================================
 
-    TMP_CACHE=$(mktemp "$NYXHUD_CACHE_DIR/${SCRIPT_NAME}.XXXXXX")
+    if [ -s "$TMP1" ] &&
+       [ -s "$TMP2" ] &&
+       [ -s "$TMP3" ]; then
 
-    cat > "$TMP_CACHE" <<EOF
+        # =================================================
+        # PARSE JSON
+        # =================================================
+
+        set -- $(
+            jq -r '
+            [
+                .bitcoin.usd,
+                .ethereum.usd,
+                .solana.usd
+            ]
+            | map(. // 0)
+            | @tsv
+            ' "$TMP1" 2>/dev/null
+        )
+
+        BTC=$1
+        ETH=$2
+        SOL=$3
+
+        set -- $(
+            jq -r '
+            .rates.BRL // 0
+            ' "$TMP2" "$TMP3" 2>/dev/null
+        )
+
+        USD=$1
+        EUR=$2
+
+        # =================================================
+        # SANITIZE
+        # =================================================
+
+        BTC=${BTC:-0}
+
+        ETH=${ETH:-0}
+
+        SOL=${SOL:-0}
+
+        USD=${USD:-0}
+
+        EUR=${EUR:-0}
+
+        BTC_FMT=$(LC_ALL=C printf "%.2f" "$BTC")
+
+        ETH_FMT=$(LC_ALL=C printf "%.2f" "$ETH")
+
+        SOL_FMT=$(LC_ALL=C printf "%.2f" "$SOL")
+
+        USD_FMT=$(LC_ALL=C printf "%.2f" "$USD")
+
+        EUR_FMT=$(LC_ALL=C printf "%.2f" "$EUR")
+
+        # =================================================
+        # ATOMIC CACHE WRITE
+        # =================================================
+
+        TMP_CACHE=$(mktemp "$NYXHUD_CACHE_DIR/${SCRIPT_NAME}.XXXXXX")
+
+        cat > "$TMP_CACHE" <<EOF
 BTC=$BTC_FMT
 ETH=$ETH_FMT
 SOL=$SOL_FMT
@@ -156,7 +181,8 @@ USD=$USD_FMT
 EUR=$EUR_FMT
 EOF
 
-    mv "$TMP_CACHE" "$CACHE"
+        mv "$TMP_CACHE" "$CACHE"
+    fi
 fi
 
 # =========================================================
@@ -192,6 +218,10 @@ if [ -f "$CACHE" ]; then
         esac
 
     done < "$CACHE"
+
+    # =====================================================
+    # ATOMIC RENDER WRITE
+    # =====================================================
 
     TMP_RENDER=$(mktemp "$NYXHUD_RENDER_DIR/${SCRIPT_NAME}.XXXXXX")
 
