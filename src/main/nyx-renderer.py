@@ -17,10 +17,18 @@ MAX_LINES = 256
 
 MAX_LINE_LENGTH = 256
 
-import gi
-import cairo
+REFRESH_INTERVAL_MS = 1000
+
+RENDER_TTL = 15
+
+WINDOW_MARGIN = 40
+
 import os
 import sys
+import html
+
+import gi
+import cairo
 
 gi.require_version('Gtk', '3.0')
 
@@ -65,15 +73,32 @@ class NyxHud(Gtk.Window):
             type=Gtk.WindowType.TOPLEVEL
         )
 
+        # =================================================
+        # RENDER STATE
+        # =================================================
+
+        self.file_cache = {}
+
+        self.file_mtimes = {}
+
+        self.last_markup = ""
+
+        # =================================================
+        # WINDOW IDENTITY
+        # =================================================
+
         self.set_name("nyxhud")
+
         self.set_title("nyxhud")
+
+        self.set_role("nyxhud")
 
         # =================================================
         # WINDOW BEHAVIOR
         # =================================================
 
         self.set_type_hint(
-            Gdk.WindowTypeHint.NORMAL
+            Gdk.WindowTypeHint.DESKTOP
         )
 
         self.set_decorated(False)
@@ -99,9 +124,39 @@ class NyxHud(Gtk.Window):
         visual = screen.get_rgba_visual()
 
         if visual:
+
             self.set_visual(visual)
 
         self.set_app_paintable(True)
+
+        # =================================================
+        # GTK CSS
+        # =================================================
+
+        css = b"""
+        window,
+        window.background,
+        window.tooltip,
+        decoration,
+        decoration:backdrop {
+
+            background-color: transparent;
+            box-shadow: none;
+            border: none;
+            margin: 0;
+            padding: 0;
+        }
+        """
+
+        provider = Gtk.CssProvider()
+
+        provider.load_from_data(css)
+
+        Gtk.StyleContext.add_provider_for_screen(
+            screen,
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
 
         # =================================================
         # LABEL
@@ -142,7 +197,7 @@ class NyxHud(Gtk.Window):
         self.add(self.label)
 
         # =================================================
-        # REALIZE
+        # EVENTS
         # =================================================
 
         self.connect(
@@ -150,16 +205,79 @@ class NyxHud(Gtk.Window):
             self.on_realize
         )
 
+        self.connect(
+            "draw",
+            self.on_draw
+        )
+
+        # =================================================
+        # INITIAL UPDATE
+        # =================================================
+
+        self.update_hud()
+
         # =================================================
         # REFRESH LOOP
         # =================================================
 
         GLib.timeout_add(
-            1000,
+            REFRESH_INTERVAL_MS,
             self.update_hud
         )
 
-        self.update_hud()
+    # =====================================================
+    # WINDOW POSITION
+    # =====================================================
+
+    def position_window(self):
+
+        display = self.get_display()
+
+        monitor = display.get_monitor(0)
+
+        geometry = monitor.get_geometry()
+
+        width, height = self.get_size()
+
+        x = WINDOW_MARGIN
+
+        y = (
+            geometry.height
+            - height
+            - WINDOW_MARGIN
+        )
+
+        self.move(x, y)
+
+        return False
+
+    # =====================================================
+    # POST REALIZE
+    # =====================================================
+
+    def post_realize(self):
+
+        gdk_window = self.get_window()
+
+        if gdk_window is None:
+
+            return True
+
+        # =================================================
+        # FORCE STACKING
+        # =================================================
+
+        gdk_window.lower()
+
+        self.set_keep_below(True)
+
+        # =================================================
+        # POSITION
+        # =================================================
+
+        self.position_window()
+
+        return False
 
     # =====================================================
     # WINDOW REALIZE
@@ -167,16 +285,85 @@ class NyxHud(Gtk.Window):
 
     def on_realize(self, widget):
 
-        self.move(40, 40)
-
         empty_region = cairo.Region()
 
         self.input_shape_combine_region(
             empty_region
         )
 
+        GLib.idle_add(
+            self.post_realize
+        )
+
     # =====================================================
-    # LOAD SNAPSHOTS
+    # TRANSPARENT DRAW
+    # =====================================================
+
+    def on_draw(self, widget, cr):
+
+        cr.set_source_rgba(
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        )
+
+        cr.set_operator(
+            cairo.OPERATOR_SOURCE
+        )
+
+        cr.paint()
+
+        return False
+
+    # =====================================================
+    # LOAD RENDER FILE
+    # =====================================================
+
+    def load_render_file(self, path):
+
+        try:
+
+            with open(
+                path,
+                "r",
+                encoding="utf-8",
+                errors="replace"
+            ) as f:
+
+                data = f.read(
+                    MAX_RENDER_SIZE
+                )
+
+        except Exception:
+
+            return ""
+
+        lines = []
+
+        for line in data.splitlines()[:MAX_LINES]:
+
+            lines.append(
+                line[:MAX_LINE_LENGTH]
+            )
+
+        return "\n".join(lines).strip()
+
+    # =====================================================
+    # EXPIRED SNAPSHOT
+    # =====================================================
+
+    def is_expired(self, mtime):
+
+        now = GLib.get_monotonic_time() // 1000000
+
+        return (
+            (now - int(mtime))
+            > RENDER_TTL
+        )
+
+    # =====================================================
+    # BUILD TEXT
     # =====================================================
 
     def build_text(self):
@@ -196,6 +383,8 @@ class NyxHud(Gtk.Window):
 
             return ""
 
+        valid_paths = set()
+
         for name in files:
 
             path = os.path.join(
@@ -203,29 +392,93 @@ class NyxHud(Gtk.Window):
                 name
             )
 
+            valid_paths.add(path)
+
             try:
 
-                with open(
-                    path,
-                    "r",
-                    encoding="utf-8",
-                    errors="replace"
-                ) as f:
-
-                    data = f.read(
-                        MAX_RENDER_SIZE
-                    )
-
-                    data = "\n".join(
-                        line[:MAX_LINE_LENGTH]
-                        for line in data.splitlines()[:MAX_LINES]
-                    ).strip()
-
-                    if data:
-                        blocks.append(data)
+                stat = os.stat(path)
 
             except Exception:
-                pass
+
+                continue
+
+            mtime = int(stat.st_mtime)
+
+            # =============================================
+            # STALE SNAPSHOT
+            # =============================================
+
+            if self.is_expired(mtime):
+
+                self.file_cache.pop(
+                    path,
+                    None
+                )
+
+                self.file_mtimes.pop(
+                    path,
+                    None
+                )
+
+                continue
+
+            # =============================================
+            # CACHE HIT
+            # =============================================
+
+            old_mtime = self.file_mtimes.get(path)
+
+            if old_mtime == mtime:
+
+                cached = self.file_cache.get(
+                    path
+                )
+
+                if cached:
+
+                    blocks.append(cached)
+
+                continue
+
+            # =============================================
+            # RELOAD
+            # =============================================
+
+            text = self.load_render_file(
+                path
+            )
+
+            self.file_mtimes[path] = mtime
+
+            self.file_cache[path] = text
+
+            if text:
+
+                blocks.append(text)
+
+        # =================================================
+        # PURGE DELETED FILES
+        # =================================================
+
+        stale = []
+
+        for path in self.file_cache:
+
+            if path not in valid_paths:
+
+                stale.append(path)
+
+        for path in stale:
+
+            self.file_cache.pop(
+                path,
+                None
+            )
+
+            self.file_mtimes.pop(
+                path,
+                None
+            )
 
         return "\n\n".join(blocks)
 
@@ -239,9 +492,19 @@ class NyxHud(Gtk.Window):
 
         for line in text.splitlines():
 
+            stripped = line.strip()
+
+            # =============================================
+            # SECTION HEADER
+            # =============================================
+
             if (
-                line.isupper()
-                and " " not in line
+                stripped
+                and len(stripped) <= 32
+                and stripped.upper() == stripped
+                and any(c.isalpha() for c in stripped)
+                and not any(c.isdigit() for c in stripped)
+                and ":" not in stripped
             ):
 
                 lines.append(
@@ -261,6 +524,27 @@ class NyxHud(Gtk.Window):
         return "\n".join(lines)
 
     # =====================================================
+    # BUILD MARKUP
+    # =====================================================
+
+    def build_markup(self, text):
+
+        safe_text = html.escape(text)
+
+        colored_text = self.colorize(
+            safe_text
+        )
+
+        return (
+            "<span "
+            "font_desc='Iosevka Term 12' "
+            "foreground='#E0E0E0' "
+            "weight='bold'>"
+            f"{colored_text}"
+            "</span>"
+        )
+
+    # =====================================================
     # HUD UPDATE
     # =====================================================
 
@@ -268,39 +552,25 @@ class NyxHud(Gtk.Window):
 
         text = self.build_text()
 
-        # =================================================
-        # MARKUP ESCAPE
-        # =================================================
-
-        safe_text = (
+        markup = self.build_markup(
             text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
         )
 
         # =================================================
-        # SECTION COLORS
+        # NO CHANGES
         # =================================================
 
-        colored_text = self.colorize(
-            safe_text
-        )
+        if markup == self.last_markup:
+
+            return True
 
         # =================================================
-        # FINAL RENDER
+        # UPDATE LABEL
         # =================================================
 
-        self.label.set_markup(
-            (
-                "<span "
-                "font_desc='Iosevka Term 12' "
-                "foreground='#E0E0E0' "
-                "weight='bold'>"
-                f"{colored_text}"
-                "</span>"
-            )
-        )
+        self.label.set_markup(markup)
+
+        self.last_markup = markup
 
         return True
 
@@ -341,7 +611,9 @@ try:
 finally:
 
     try:
+
         os.rmdir(LOCKDIR)
 
     except Exception:
+
         pass
