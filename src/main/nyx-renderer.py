@@ -29,6 +29,7 @@ import html
 
 import gi
 import cairo
+import time
 
 gi.require_version('Gtk', '3.0')
 
@@ -355,7 +356,7 @@ class NyxHud(Gtk.Window):
 
     def is_expired(self, mtime):
 
-        now = GLib.get_monotonic_time() // 1000000
+        now = int(time.time())
 
         return (
             (now - int(mtime))
