@@ -26,6 +26,7 @@ WINDOW_MARGIN = 40
 import os
 import sys
 import html
+import atexit
 
 import gi
 import cairo
@@ -593,28 +594,33 @@ except FileExistsError:
     sys.exit(1)
 
 # =========================================================
-# START GTK
+# CLEANUP
 # =========================================================
 
-try:
-
-    win = NyxHud()
-
-    win.connect(
-        "destroy",
-        Gtk.main_quit
-    )
-
-    win.show_all()
-
-    Gtk.main()
-
-finally:
+def cleanup():
 
     try:
 
         os.rmdir(LOCKDIR)
 
-    except Exception:
+    except OSError:
 
         pass
+
+
+atexit.register(cleanup)
+
+# =========================================================
+# START GTK
+# =========================================================
+
+win = NyxHud()
+
+win.connect(
+    "destroy",
+    Gtk.main_quit
+)
+
+win.show_all()
+
+Gtk.main()

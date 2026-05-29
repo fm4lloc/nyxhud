@@ -48,28 +48,31 @@ export NYXHUD_CACHE_DIR
 export NYXHUD_COLLECTORS_DIR
 
 # =========================================================
-# CLEAN RUNTIME
+# CLEAN SESSION DATA
 # =========================================================
 
-rm -rf "$NYXHUD_RUNTIME_DIR"
+rm -rf -- "$NYXHUD_RUNTIME_DIR"
+
+# persistent API cache is discarded on every startup
+rm -rf -- "$NYXHUD_CACHE_DIR"
 
 # =========================================================
 # DIRECTORIES
 # =========================================================
 
-mkdir -p "$NYXHUD_RUNTIME_DIR"
+mkdir -p -- "$NYXHUD_RUNTIME_DIR"
 
-mkdir -p "$NYXHUD_STATE_DIR"
+mkdir -p -- "$NYXHUD_STATE_DIR"
 
-mkdir -p "$NYXHUD_RENDER_DIR"
+mkdir -p -- "$NYXHUD_RENDER_DIR"
 
-mkdir -p "$NYXHUD_CACHE_DIR"
+mkdir -p -- "$NYXHUD_CACHE_DIR"
 
 # =========================================================
 # SINGLETON LOCK
 # =========================================================
 
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
+if ! mkdir -- "$LOCKDIR" 2>/dev/null; then
 
     printf '[nyxhud] collectord already running\n' >&2
 
@@ -159,6 +162,10 @@ while :; do
         if [ -f "$stamp" ]; then
 
             read -r last < "$stamp" || last=0
+
+            case "$last" in
+               ''|*[!0-9]*) last=0 ;;
+            esac
         fi
 
         # =================================================
@@ -173,9 +180,7 @@ while :; do
         # RUN COLLECTOR
         # =================================================
 
-        if (
-            "$file" >/dev/null
-        ); then
+        if "$file" >/dev/null; then
 
             # =============================================
             # UPDATE TIMESTAMP
