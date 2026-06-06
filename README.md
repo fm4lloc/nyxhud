@@ -1,6 +1,6 @@
 # NyxHud
 
-Minimal X11 desktop HUD for Linux.
+Minimal HUD for Linux/X11 desktops.
 
 ![NyxHud](screenshots/desktop.png)
 
@@ -12,7 +12,7 @@ Minimal X11 desktop HUD for Linux.
 * Python renderer
 * No telemetry
 * No cloud services
-* Low overhead
+* Low resource usage
 
 ## Architecture
 
@@ -28,7 +28,7 @@ X11 Overlay
 
 ## Font
 
-NyxHud is designed around **Iosevka Term** for compact spacing, high readability and terminal-oriented rendering.
+NyxHud is designed around **Iosevka Term**, prioritizing compact spacing, high readability and terminal-oriented rendering.
 
 Recommended:
 
@@ -40,6 +40,30 @@ Official resources:
 
 * https://typeof.net/Iosevka/
 * https://github.com/be5invis/Iosevka
+
+## Transparency
+
+NyxHud supports transparency through X11 compositors such as **picom**.
+
+Install:
+
+```sh
+sudo pacman -S picom
+```
+
+To prevent shadows on the HUD window, add the following rule to your `picom.conf`:
+
+```conf
+shadow-exclude = [
+    "name = 'nyxhud'"
+];
+```
+
+Start the compositor:
+
+```sh
+picom --backend glx &
+```
 
 ## Dependencies
 

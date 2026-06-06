@@ -41,6 +41,27 @@ Recursos oficiais:
 * https://typeof.net/Iosevka/
 * https://github.com/be5invis/Iosevka
 
+## Transparência
+
+O NyxHud oferece suporte à transparência através de compositores X11, como o **picom**.
+
+Para evitar sombras na janela do HUD, adicione a seguinte regra ao seu `picom.conf`:
+
+```conf
+shadow-exclude = [
+    "name = 'nyxhud'"
+];
+```
+```sh
+sudo pacman -S picom
+```
+
+Inicie o compositor:
+
+```sh
+picom --backend glx &
+```
+
 ## Dependências
 
 Arch Linux:
