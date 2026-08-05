@@ -4,7 +4,7 @@ Modular HUD for Wayland compositors compatible with `wlr-layer-shell`.
 
 It is not a widget framework, a plugin system, nor a monolithic daemon: it is two independent programs that communicate only via text files published in a private directory. Each collector runs, publishes exactly one block, and exits; the renderer reads the blocks and draws. Neither side knows the implementation of the other.
 
-![NyxHUD](screenshots/desktop.png)
+![Nyxhud](screenshots/desktop.png)
 
 ## Architecture
 
