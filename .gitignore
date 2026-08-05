@@ -1,0 +1,114 @@
+# -----------------------------------------------------------------------------
+# NyxHUD - Git Ignore
+#
+# NyxHUD has no build step: nothing is compiled, generated or installed.
+# Every rule below covers an editor artifact, a runtime artifact of the
+# program itself, or something that must never leave the machine.
+# -----------------------------------------------------------------------------
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*.pyd
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# =============================================================================
+# NyxHUD runtime artifacts
+#
+# Produced when a collector or the renderer is pointed at the source tree,
+# which the debugging instructions make easy to do by accident.
+# =============================================================================
+nyxhud/
+render/
+state/
+*.render
+*.state
+*.cache
+
+# Temporary files awaiting rename(), named .NN_collector.XXXXXX
+.[0-9][0-9]_*
+
+# =============================================================================
+# Environment and secrets
+#
+# NyxHUD is configured entirely through environment variables, which makes a
+# local .env the natural place to keep settings, and the natural way to commit
+# something that should not be committed.
+# =============================================================================
+.env
+.env.*
+.envrc
+secrets.*
+*.key
+*.pem
+
+# =============================================================================
+# Editors
+# =============================================================================
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.code-workspace
+.#*
+\#*#
+.kate-swp
+.directory
+
+# =============================================================================
+# Platform
+# =============================================================================
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Desktop.ini
+
+# =============================================================================
+# Patch and merge leftovers
+#
+# *.patch and *.diff are deliberately not ignored: those are often committed
+# on purpose.
+# =============================================================================
+*.orig
+*.rej
+*.bak
+*.tmp
+*.temp
+
+# =============================================================================
+# Logs, crashes and profiling
+# =============================================================================
+*.log
+nohup.out
+core
+core.*
+*.core
+vgcore.*
+perf.data
+perf.data.*
+
+# =============================================================================
+# Release archives
+#
+# Built in-tree during packaging and never committed.
+# =============================================================================
+*.tar
+*.tar.*
+*.tgz
+*.zip
+
+# =============================================================================
+# Documentation build output
+# =============================================================================
+Documentation/_build/
+_build/
